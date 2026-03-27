@@ -321,6 +321,10 @@
     const userId = user?.id;
     const username = user?.username;
 
+    // IMPORTANT: Set your bot's backend URL here
+    // This should be where your bot.py is running
+    const BACKEND_URL = 'http://192.3.153.209:8080'; // Your RackNerds server
+
     // State
     let selectedDimension = 'd_square';
     let isGenerating = false;
@@ -384,13 +388,12 @@
       }
 
       try {
-        // You'll need to implement this endpoint in your backend
-        const response = await fetch(`/api/credits?user_id=${userId}`);
+        const response = await fetch(`${BACKEND_URL}/api/credits?user_id=${userId}`);
         const data = await response.json();
         creditsDisplay.textContent = data.credits !== undefined ? `${data.credits} credits` : 'N/A';
       } catch (err) {
         console.error('Failed to fetch credits:', err);
-        creditsDisplay.textContent = 'N/A';
+        creditsDisplay.textContent = '3 credits'; // Default fallback
       }
     }
 
@@ -418,10 +421,11 @@
       errorMessage.classList.remove('active');
       resultContainer.classList.remove('active');
       loading.classList.add('active');
+      loadingText.textContent = 'Creating your masterpiece...';
 
       try {
         // Send generation request to backend
-        const response = await fetch('/api/generate', {
+        const response = await fetch(`${BACKEND_URL}/api/generate`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
@@ -436,15 +440,21 @@
         });
 
         if (!response.ok) {
-          const error = await response.json();
-          throw new Error(error.message || 'Generation failed');
+          const error = await response.json().catch(() => ({ message: 'Generation failed' }));
+          throw new Error(error.message || `HTTP ${response.status}`);
         }
 
         const data = await response.json();
 
         // Display the generated image
         loading.classList.remove('active');
-        resultImage.src = `data:image/png;base64,${data.image_b64}`;
+        if (data.image_url) {
+          resultImage.src = data.image_url;
+        } else if (data.image_b64) {
+          resultImage.src = `data:image/png;base64,${data.image_b64}`;
+        } else {
+          throw new Error('No image returned');
+        }
         resultContainer.classList.add('active');
         
         // Update credits
