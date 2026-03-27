@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>DreamForge AI - Image Generator</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--tg-theme-bg-color, #ffffff);
+      color: var(--tg-theme-text-color, #000000);
+      padding: 16px;
+      min-height: 100vh;
+    }
+
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      font-size: 24px;
+      font-weight: 700;
+      margin-bottom: 8px;
+      color: var(--tg-theme-hint-color, #666);
+    }
+
+    .subtitle {
+      font-size: 14px;
+      color: var(--tg-theme-hint-color, #999);
+      margin-bottom: 24px;
+    }
+
+    .credits-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--tg-theme-button-color, #3390ec);
+      color: var(--tg-theme-button-text-color, #ffffff);
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 20px;
+    }
+
+    .form-group {
+      margin-bottom: 16px;
+    }
+
+    label {
+      display: block;
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 8px;
+      color: var(--tg-theme-text-color, #000000);
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 100px;
+      padding: 12px;
+      border: 2px solid var(--tg-theme-hint-color, #e0e0e0);
+      border-radius: 12px;
+      font-size: 14px;
+      font-family: inherit;
+      resize: vertical;
+      background: var(--tg-theme-secondary-bg-color, #f5f5f5);
+      color: var(--tg-theme-text-color, #000000);
+    }
+
+    textarea:focus {
+      outline: none;
+      border-color: var(--tg-theme-button-color, #3390ec);
+    }
+
+    select {
+      width: 100%;
+      padding: 12px;
+      border: 2px solid var(--tg-theme-hint-color, #e0e0e0);
+      border-radius: 12px;
+      font-size: 14px;
+      background: var(--tg-theme-secondary-bg-color, #f5f5f5);
+      color: var(--tg-theme-text-color, #000000);
+      cursor: pointer;
+    }
+
+    select:focus {
+      outline: none;
+      border-color: var(--tg-theme-button-color, #3390ec);
+    }
+
+    .dimension-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+    }
+
+    .dimension-option {
+      padding: 12px;
+      border: 2px solid var(--tg-theme-hint-color, #e0e0e0);
+      border-radius: 12px;
+      text-align: center;
+      cursor: pointer;
+      font-size: 13px;
+      transition: all 0.2s;
+      background: var(--tg-theme-secondary-bg-color, #f5f5f5);
+    }
+
+    .dimension-option.selected {
+      border-color: var(--tg-theme-button-color, #3390ec);
+      background: var(--tg-theme-button-color, #3390ec);
+      color: var(--tg-theme-button-text-color, #ffffff);
+    }
+
+    .generate-btn {
+      width: 100%;
+      padding: 16px;
+      background: var(--tg-theme-button-color, #3390ec);
+      color: var(--tg-theme-button-text-color, #ffffff);
+      border: none;
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 24px;
+      transition: opacity 0.2s;
+    }
+
+    .generate-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .generate-btn:active {
+      opacity: 0.8;
+    }
+
+    .loading {
+      display: none;
+      text-align: center;
+      padding: 32px;
+    }
+
+    .loading.active {
+      display: block;
+    }
+
+    .spinner {
+      width: 48px;
+      height: 48px;
+      border: 4px solid var(--tg-theme-hint-color, #e0e0e0);
+      border-top-color: var(--tg-theme-button-color, #3390ec);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 16px;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .loading-text {
+      font-size: 14px;
+      color: var(--tg-theme-hint-color, #999);
+    }
+
+    .result-container {
+      display: none;
+      margin-top: 24px;
+    }
+
+    .result-container.active {
+      display: block;
+    }
+
+    .result-image {
+      width: 100%;
+      border-radius: 12px;
+      margin-bottom: 16px;
+    }
+
+    .result-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .action-btn {
+      flex: 1;
+      padding: 12px;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+
+    .download-btn {
+      background: var(--tg-theme-button-color, #3390ec);
+      color: var(--tg-theme-button-text-color, #ffffff);
+    }
+
+    .share-btn {
+      background: var(--tg-theme-secondary-bg-color, #f5f5f5);
+      color: var(--tg-theme-text-color, #000000);
+    }
+
+    .error-message {
+      display: none;
+      background: #ffebee;
+      color: #c62828;
+      padding: 12px;
+      border-radius: 8px;
+      font-size: 14px;
+      margin-top: 16px;
+    }
+
+    .error-message.active {
+      display: block;
+    }
+
+    .style-info {
+      font-size: 12px;
+      color: var(--tg-theme-hint-color, #999);
+      margin-top: 4px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🎨 DreamForge AI</h1>
+    <p class="subtitle">Transform your ideas into stunning images</p>
+
+    <div class="credits-badge">
+      <span>💰</span>
+      <span id="credits-display">Loading...</span>
+    </div>
+
+    <div class="form-group">
+      <label for="prompt">Describe your image</label>
+      <textarea 
+        id="prompt" 
+        placeholder="A magical fantasy landscape with glowing crystals, ethereal lighting, highly detailed..."
+      ></textarea>
+    </div>
+
+    <div class="form-group">
+      <label for="style">Art Style</label>
+      <select id="style">
+        <option value="s_realistic">📷 Realistic</option>
+        <option value="s_portrait">🧑 Portrait</option>
+        <option value="s_fantasy">🧙 Fantasy</option>
+        <option value="s_anime">🎌 Anime</option>
+        <option value="s_scifi">🚀 Sci-Fi</option>
+        <option value="s_analog">📽 Analog Film</option>
+        <option value="s_absolute">🌟 Ultra Real</option>
+        <option value="s_flux">⚡ FLUX (Fast)</option>
+        <option value="s_flux_pro">👑 FLUX Pro</option>
+      </select>
+      <div class="style-info" id="style-info">Model: Deliberate</div>
+    </div>
+
+    <div class="form-group">
+      <label>Dimensions</label>
+      <div class="dimension-grid">
+        <div class="dimension-option selected" data-dim="d_square">
+          ⬜ Square<br>512×512
+        </div>
+        <div class="dimension-option" data-dim="d_portrait">
+          📱 Portrait<br>512×768
+        </div>
+        <div class="dimension-option" data-dim="d_landscape">
+          🖼 Landscape<br>768×512
+        </div>
+        <div class="dimension-option" data-dim="d_hd">
+          ✨ HD<br>768×768
+        </div>
+      </div>
+    </div>
+
+    <button class="generate-btn" id="generate-btn">
+      ✨ Generate Image
+    </button>
+
+    <div class="loading" id="loading">
+      <div class="spinner"></div>
+      <p class="loading-text" id="loading-text">Creating your masterpiece...</p>
+    </div>
+
+    <div class="error-message" id="error-message"></div>
+
+    <div class="result-container" id="result-container">
+      <img class="result-image" id="result-image" alt="Generated image" />
+      <div class="result-actions">
+        <button class="action-btn download-btn" id="download-btn">
+          📥 Download
+        </button>
+        <button class="action-btn share-btn" id="share-btn">
+          🔄 Generate Another
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Initialize Telegram WebApp
+    const tg = window.Telegram.WebApp;
+    tg.ready();
+    tg.expand();
+
+    // Get user data from Telegram
+    const user = tg.initDataUnsafe?.user;
+    const userId = user?.id;
+    const username = user?.username;
+
+    // State
+    let selectedDimension = 'd_square';
+    let isGenerating = false;
+
+    // Style models mapping (from bot.py)
+    const styleModels = {
+      's_realistic': 'Deliberate',
+      's_portrait': 'Realistic Vision',
+      's_fantasy': 'DreamShaper',
+      's_anime': 'Anything v5',
+      's_scifi': 'Sci-Fi Diffusion',
+      's_analog': 'Analog Madness',
+      's_absolute': 'AbsoluteReality',
+      's_flux': 'flux-schnell',
+      's_flux_pro': 'flux-dev'
+    };
+
+    // Dimensions mapping
+    const dimensions = {
+      'd_square': { w: 512, h: 512, cost: 1, label: 'Square 512×512' },
+      'd_portrait': { w: 512, h: 768, cost: 1, label: 'Portrait 512×768' },
+      'd_landscape': { w: 768, h: 512, cost: 1, label: 'Landscape 768×512' },
+      'd_hd': { w: 768, h: 768, cost: 2, label: 'HD 768×768' }
+    };
+
+    // DOM elements
+    const promptInput = document.getElementById('prompt');
+    const styleSelect = document.getElementById('style');
+    const styleInfo = document.getElementById('style-info');
+    const generateBtn = document.getElementById('generate-btn');
+    const loading = document.getElementById('loading');
+    const loadingText = document.getElementById('loading-text');
+    const errorMessage = document.getElementById('error-message');
+    const resultContainer = document.getElementById('result-container');
+    const resultImage = document.getElementById('result-image');
+    const downloadBtn = document.getElementById('download-btn');
+    const shareBtn = document.getElementById('share-btn');
+    const creditsDisplay = document.getElementById('credits-display');
+    const dimensionOptions = document.querySelectorAll('.dimension-option');
+
+    // Update style info when style changes
+    styleSelect.addEventListener('change', () => {
+      const model = styleModels[styleSelect.value] || 'Unknown';
+      styleInfo.textContent = `Model: ${model}`;
+    });
+
+    // Handle dimension selection
+    dimensionOptions.forEach(option => {
+      option.addEventListener('click', () => {
+        dimensionOptions.forEach(opt => opt.classList.remove('selected'));
+        option.classList.add('selected');
+        selectedDimension = option.dataset.dim;
+      });
+    });
+
+    // Fetch user credits on load
+    async function fetchCredits() {
+      if (!userId) {
+        creditsDisplay.textContent = 'Guest';
+        return;
+      }
+
+      try {
+        // You'll need to implement this endpoint in your backend
+        const response = await fetch(`/api/credits?user_id=${userId}`);
+        const data = await response.json();
+        creditsDisplay.textContent = data.credits !== undefined ? `${data.credits} credits` : 'N/A';
+      } catch (err) {
+        console.error('Failed to fetch credits:', err);
+        creditsDisplay.textContent = 'N/A';
+      }
+    }
+
+    // Generate image
+    async function generateImage() {
+      const prompt = promptInput.value.trim();
+      
+      if (!prompt) {
+        showError('Please enter a prompt describing your image');
+        return;
+      }
+
+      if (isGenerating) return;
+
+      const style = styleSelect.value;
+      const dim = dimensions[selectedDimension];
+
+      // Check credits (client-side check only, server should validate)
+      if (dim.cost > 1) {
+        // Optional: check if user has enough credits
+      }
+
+      isGenerating = true;
+      generateBtn.disabled = true;
+      errorMessage.classList.remove('active');
+      resultContainer.classList.remove('active');
+      loading.classList.add('active');
+
+      try {
+        // Send generation request to backend
+        const response = await fetch('/api/generate', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            user_id: userId,
+            username: username,
+            prompt: prompt,
+            style: style,
+            dimension: selectedDimension
+          })
+        });
+
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.message || 'Generation failed');
+        }
+
+        const data = await response.json();
+
+        // Display the generated image
+        loading.classList.remove('active');
+        resultImage.src = `data:image/png;base64,${data.image_b64}`;
+        resultContainer.classList.add('active');
+        
+        // Update credits
+        fetchCredits();
+
+        // Haptic feedback
+        tg.HapticFeedback.notificationOccurred('success');
+
+      } catch (err) {
+        console.error('Generation error:', err);
+        loading.classList.remove('active');
+        showError(err.message);
+        tg.HapticFeedback.notificationOccurred('error');
+      } finally {
+        isGenerating = false;
+        generateBtn.disabled = false;
+      }
+    }
+
+    // Show error message
+    function showError(message) {
+      errorMessage.textContent = message;
+      errorMessage.classList.add('active');
+    }
+
+    // Download image
+    downloadBtn.addEventListener('click', () => {
+      const link = document.createElement('a');
+      link.href = resultImage.src;
+      link.download = `dreamforge_${Date.now()}.png`;
+      link.click();
+      tg.HapticFeedback.impactOccurred('light');
+    });
+
+    // Generate another
+    shareBtn.addEventListener('click', () => {
+      resultContainer.classList.remove('active');
+      promptInput.value = '';
+      promptInput.focus();
+      tg.HapticFeedback.impactOccurred('light');
+    });
+
+    // Generate button click
+    generateBtn.addEventListener('click', () => {
+      generateImage();
+      tg.HapticFeedback.impactOccurred('medium');
+    });
+
+    // Set MainButton for generation
+    tg.MainButton.setText('✨ GENERATE IMAGE');
+    tg.MainButton.onClick(generateImage);
+    tg.MainButton.show();
+
+    // Initialize
+    fetchCredits();
+
+    // Apply theme colors
+    document.documentElement.style.setProperty('--tg-theme-bg-color', tg.backgroundColor || '#ffffff');
+    document.documentElement.style.setProperty('--tg-theme-text-color', tg.textColor || '#000000');
+    document.documentElement.style.setProperty('--tg-theme-hint-color', tg.hintColor || '#999999');
+    document.documentElement.style.setProperty('--tg-theme-button-color', tg.buttonColor || '#3390ec');
+    document.documentElement.style.setProperty('--tg-theme-button-text-color', tg.buttonTextColor || '#ffffff');
+    document.documentElement.style.setProperty('--tg-theme-secondary-bg-color', tg.secondaryBackgroundColor || '#f0f0f0');
+  </script>
+</body>
+</html>
