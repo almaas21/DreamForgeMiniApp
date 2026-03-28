@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -164,7 +165,9 @@
     }
 
     @keyframes spin {
-      to { transform: rotate(360deg); }
+      to {
+        transform: rotate(360deg);
+      }
     }
 
     .loading-text {
@@ -234,6 +237,7 @@
     }
   </style>
 </head>
+
 <body>
   <div class="container">
     <h1>🎨 DreamForge AI</h1>
@@ -246,15 +250,14 @@
 
     <div class="form-group">
       <label for="prompt">Describe your image</label>
-      <textarea 
-        id="prompt" 
-        placeholder="A magical fantasy landscape with glowing crystals, ethereal lighting, highly detailed..."
-      ></textarea>
+      <textarea id="prompt"
+        placeholder="A magical fantasy landscape with glowing crystals, ethereal lighting, highly detailed..."></textarea>
     </div>
 
     <div class="form-group">
       <label for="style">Art Style</label>
       <select id="style">
+        <option value="s_zimage">⚡ Z-Image Fast (Free)</option>
         <option value="s_realistic">📷 Realistic</option>
         <option value="s_portrait">🧑 Portrait</option>
         <option value="s_fantasy">🧙 Fantasy</option>
@@ -265,7 +268,7 @@
         <option value="s_flux">⚡ FLUX (Fast)</option>
         <option value="s_flux_pro">👑 FLUX Pro</option>
       </select>
-      <div class="style-info" id="style-info">Model: Deliberate</div>
+      <div class="style-info" id="style-info">Model: Turbo Fast Engine · Included</div>
     </div>
 
     <div class="form-group">
@@ -323,7 +326,7 @@
 
     // IMPORTANT: Set your bot's backend URL here
     // This should be where your bot.py is running
-    const BACKEND_URL = 'https://ingredients-scanner-combinations-spyware.trycloudflare.com'; // Your RackNerds server
+    const BACKEND_URL = 'http://192.3.153.209:8080'; // Your RackNerds server
 
     // State
     let selectedDimension = 'd_square';
@@ -331,6 +334,7 @@
 
     // Style models mapping (from bot.py)
     const styleModels = {
+      's_zimage': 'Turbo Fast Engine',
       's_realistic': 'Deliberate',
       's_portrait': 'Realistic Vision',
       's_fantasy': 'DreamShaper',
@@ -340,6 +344,10 @@
       's_absolute': 'AbsoluteReality',
       's_flux': 'flux-schnell',
       's_flux_pro': 'flux-dev'
+    };
+
+    const styleCostNotes = {
+      's_zimage': 'Included in plan',
     };
 
     // Dimensions mapping
@@ -368,7 +376,8 @@
     // Update style info when style changes
     styleSelect.addEventListener('change', () => {
       const model = styleModels[styleSelect.value] || 'Unknown';
-      styleInfo.textContent = `Model: ${model}`;
+      const costNote = styleCostNotes[styleSelect.value];
+      styleInfo.textContent = costNote ? `Model: ${model} · ${costNote}` : `Model: ${model}`;
     });
 
     // Handle dimension selection
@@ -400,7 +409,7 @@
     // Generate image
     async function generateImage() {
       const prompt = promptInput.value.trim();
-      
+
       if (!prompt) {
         showError('Please enter a prompt describing your image');
         return;
@@ -421,7 +430,9 @@
       errorMessage.classList.remove('active');
       resultContainer.classList.remove('active');
       loading.classList.add('active');
-      loadingText.textContent = 'Creating your masterpiece...';
+      loadingText.textContent = style === 's_zimage'
+        ? 'Generating with Turbo Fast engine...'
+        : 'Creating your masterpiece...';
 
       try {
         // Send generation request to backend
@@ -456,7 +467,7 @@
           throw new Error('No image returned');
         }
         resultContainer.classList.add('active');
-        
+
         // Update credits
         fetchCredits();
 
@@ -520,4 +531,5 @@
     document.documentElement.style.setProperty('--tg-theme-secondary-bg-color', tg.secondaryBackgroundColor || '#f0f0f0');
   </script>
 </body>
+
 </html>
