@@ -3,7 +3,8 @@
 
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport"
+    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>DreamForge AI - Image Generator</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <style>
@@ -13,17 +14,47 @@
       box-sizing: border-box;
     }
 
+    :root {
+      /* Telegram sets --tg-safe-area-inset-* / --tg-content-safe-area-inset-* on
+         supported clients; env() covers iOS notch/home-indicator elsewhere. */
+      --safe-top: max(var(--tg-safe-area-inset-top, 0px), env(safe-area-inset-top, 0px));
+      --safe-bottom: max(var(--tg-safe-area-inset-bottom, 0px), env(safe-area-inset-bottom, 0px));
+      --safe-left: max(var(--tg-safe-area-inset-left, 0px), env(safe-area-inset-left, 0px));
+      --safe-right: max(var(--tg-safe-area-inset-right, 0px), env(safe-area-inset-right, 0px));
+      --content-top: var(--tg-content-safe-area-inset-top, 0px);
+      --content-bottom: var(--tg-content-safe-area-inset-bottom, 0px);
+      --app-height: 100dvh;
+      --gutter: 16px;
+    }
+
+    html {
+      height: 100%;
+      background-color: var(--tg-theme-bg-color, #ffffff);
+    }
+
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
       background-color: var(--tg-theme-bg-color, #ffffff);
       color: var(--tg-theme-text-color, #000000);
-      padding: 16px;
+      width: 100%;
+      max-width: 100%;
+      overflow-x: hidden;
+      overscroll-behavior-y: none;
+      -webkit-overflow-scrolling: touch;
+      /* Fallback first, then the real height reported by the client */
       min-height: 100vh;
+      min-height: var(--app-height);
+      padding:
+        calc(var(--safe-top) + var(--content-top) + var(--gutter))
+        calc(var(--safe-right) + var(--gutter))
+        calc(var(--safe-bottom) + var(--content-bottom) + var(--gutter))
+        calc(var(--safe-left) + var(--gutter));
     }
 
     .container {
       max-width: 600px;
       margin: 0 auto;
+      width: 100%;
     }
 
     h1 {
@@ -70,7 +101,8 @@
       padding: 12px;
       border: 2px solid var(--tg-theme-hint-color, #e0e0e0);
       border-radius: 12px;
-      font-size: 14px;
+      /* 16px avoids iOS auto-zoom, which breaks the full-bleed layout */
+      font-size: 16px;
       font-family: inherit;
       resize: vertical;
       background: var(--tg-theme-secondary-bg-color, #f5f5f5);
@@ -87,7 +119,7 @@
       padding: 12px;
       border: 2px solid var(--tg-theme-hint-color, #e0e0e0);
       border-radius: 12px;
-      font-size: 14px;
+      font-size: 16px;
       background: var(--tg-theme-secondary-bg-color, #f5f5f5);
       color: var(--tg-theme-text-color, #000000);
       cursor: pointer;
@@ -319,6 +351,75 @@
     tg.ready();
     tg.expand();
 
+    // ---- Edge-to-edge / safe-area handling -------------------------------
+    const rootStyle = document.documentElement.style;
+
+    function setPx(name, value) {
+      if (typeof value === 'number' && !Number.isNaN(value)) {
+        rootStyle.setProperty(name, value + 'px');
+      }
+    }
+
+    function syncViewport() {
+      // Real usable height reported by the client (handles Android nav bars,
+      // the keyboard, and collapsed/expanded states).
+      const height = tg.viewportStableHeight || tg.viewportHeight;
+      if (height) {
+        rootStyle.setProperty('--app-height', height + 'px');
+      }
+
+      const sa = tg.safeAreaInset;
+      if (sa) {
+        setPx('--tg-safe-area-inset-top', sa.top);
+        setPx('--tg-safe-area-inset-bottom', sa.bottom);
+        setPx('--tg-safe-area-inset-left', sa.left);
+        setPx('--tg-safe-area-inset-right', sa.right);
+      }
+
+      const csa = tg.contentSafeAreaInset;
+      if (csa) {
+        setPx('--tg-content-safe-area-inset-top', csa.top);
+        setPx('--tg-content-safe-area-inset-bottom', csa.bottom);
+      }
+    }
+
+    function goEdgeToEdge() {
+      const supports = (v) => typeof tg.isVersionAtLeast === 'function' && tg.isVersionAtLeast(v);
+
+      try { tg.expand(); } catch (e) { /* noop */ }
+
+      // Fullscreen (Bot API 8.0+) removes the remaining chrome on mobile.
+      if (supports('8.0') && typeof tg.requestFullscreen === 'function' && !tg.isFullscreen) {
+        try { tg.requestFullscreen(); } catch (e) { /* noop */ }
+      }
+
+      // Keep swipe-to-close from fighting in-app scrolling.
+      if (supports('7.7') && typeof tg.disableVerticalSwipes === 'function') {
+        try { tg.disableVerticalSwipes(); } catch (e) { /* noop */ }
+      }
+
+      // Paint header / background / bottom bar with the page background so no
+      // light or dark bands appear at the screen edges.
+      const bg = (tg.themeParams && tg.themeParams.bg_color) || tg.backgroundColor || '#ffffff';
+      try { tg.setHeaderColor(bg); } catch (e) { /* noop */ }
+      try { tg.setBackgroundColor(bg); } catch (e) { /* noop */ }
+      if (typeof tg.setBottomBarColor === 'function') {
+        try { tg.setBottomBarColor(bg); } catch (e) { /* noop */ }
+      }
+
+      syncViewport();
+    }
+
+    ['viewportChanged', 'safeAreaChanged', 'contentSafeAreaChanged', 'fullscreenChanged', 'themeChanged']
+      .forEach((evt) => {
+        try { tg.onEvent(evt, syncViewport); } catch (e) { /* unsupported event */ }
+      });
+    window.addEventListener('resize', syncViewport);
+    window.addEventListener('orientationchange', () => setTimeout(syncViewport, 150));
+
+    goEdgeToEdge();
+    // ----------------------------------------------------------------------
+
     // Get user data from Telegram
     const user = tg.initDataUnsafe?.user;
     const userId = user?.id;
@@ -494,19 +595,19 @@
     // Download image - handles desktop AND mobile Telegram with multiple fallbacks
     downloadBtn.addEventListener('click', async () => {
       tg.HapticFeedback.impactOccurred('light');
-      
+
       try {
         const imageSrc = resultImage.src;
         const isDataUrl = imageSrc.startsWith('data:');
         const filename = `dreamforge_${Date.now()}.png`;
-        
+
         // Detect environment
         const isTelegram = window.Telegram && window.Telegram.WebApp;
         const userAgent = navigator.userAgent.toLowerCase();
         const isAndroid = userAgent.includes('android');
         const isIOS = userAgent.includes('iphone') || userAgent.includes('ipad');
         const isMobile = isAndroid || isIOS;
-        
+
         // **METHOD 1: Mobile Telegram** - Use new window + server endpoint
         if (isTelegram && isMobile) {
           if (isDataUrl) {
@@ -518,11 +619,11 @@
               const blob = await response.blob();
               const blobUrl = URL.createObjectURL(blob);
               const newTab = window.open(blobUrl, '_blank');
-              
+
               if (!newTab) {
                 throw new Error('Could not open image');
               }
-              
+
               // Revoke blob URL after 15 seconds
               setTimeout(() => URL.revokeObjectURL(blobUrl), 15000);
             } catch (blobErr) {
@@ -532,7 +633,7 @@
             }
           } else {
             // For server URLs: add download parameter for forced download headers
-            const downloadUrl = imageSrc.includes('?') 
+            const downloadUrl = imageSrc.includes('?')
               ? `${imageSrc}&download=true`
               : `${imageSrc}?download=true`;
             window.open(downloadUrl, '_blank');
